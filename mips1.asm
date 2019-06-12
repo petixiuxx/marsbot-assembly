@@ -20,6 +20,12 @@
 #===============================================================================
 .data
 # Key value
+	.eqv KEY_f 0x88
+	.eqv KEY_e 0x48
+	.eqv KEY_d 0x28
+	.eqv KEY_c 0x18
+	.eqv KEY_b 0x84
+	.eqv KEY_a 0x44
 	.eqv KEY_0 0x11
 	.eqv KEY_1 0x21
 	.eqv KEY_2 0x41
@@ -30,12 +36,7 @@
 	.eqv KEY_7 0x82
 	.eqv KEY_8 0x14
 	.eqv KEY_9 0x24
-	.eqv KEY_a 0x44
-	.eqv KEY_b 0x84
-	.eqv KEY_c 0x18
-	.eqv KEY_d 0x28
-	.eqv KEY_e 0x48
-	.eqv KEY_f 0x88
+	
 #-------------------------------------------------------------------------------
 #Control code
 	MOVE_CODE: .asciiz "1b4"
@@ -45,42 +46,41 @@
 	TRACK_CODE: .asciiz "dad"
 	UNTRACK_CODE: .asciiz "cbc"
 	GO_BACK_CODE: .asciiz "999"
-	WRONG_CODE: .asciiz "The control code is incorrect. Please enter the correct one!"
+	ERROR_MESSAGE: .asciiz "The control code is incorrect. Please enter the correct one!"
 #-------------------------------------------------------------------------------
 	inputControlCode: .space 50
 	lengthControlCode: .word 0
 	nowHeading: .word 0
 #---------------------------------------------------------
-# duong di cua masbot duoc luu tru vao mang path
-# moi 1 canh duoc luu tru duoi dang 1 structure
-# 1 structure co dang {x, y, z}
-# trong do: 	x, y la toa do diem dau tien cua canh
-#		z la huong cua canh do
-# mac dinh:	structure dau tien se la {0,0,0}
-# do dai duong di ngay khi bat dau la 12 bytes (3x 4byte)
+# The path of Marsbot is saved to the array path
+# every edge is saved as a structure
+# a structure has form of {x, y, z}
+# as: 	x, y are the coordinate of first point of edge
+#		z is the direction of that edge
+# default:	first structure is {0,0,0}
+# The length of path at the begining is 12 bytes (3x 4byte)
 #---------------------------------------------------------
 	path: .space 600
 	lengthPath: .word 12		#bytes
 
-#===============================================================================
-#===============================================================================
+
+
 .text	
 main:
-	li $k0, KEY_CODE
- 	li $k1, KEY_READY
-#---------------------------------------------------------
+	li $k0, KEY_CODE	#load key_code to k0
+ 	li $k1, KEY_READY	#load key_ready to k1
+
 # Enable the interrupt of Keyboard matrix 4x4 of Digital Lab Sim
-#---------------------------------------------------------
 	li $t1, IN_ADRESS_HEXA_KEYBOARD
 	li $t3, 0x80 # bit 7 = 1 to enable
 	sb $t3, 0($t1)
 #---------------------------------------------------------
 loop:		nop
-WaitForKey:	lw $t5, 0($k1)			#$t5 = [$k1] = KEY_READY
-		beq $t5, $zero, WaitForKey	#if $t5 == 0 then Polling 
+WaitInputKey:	lw $t5, 0($k1)			#$t5 = [$k1] = KEY_READY
+		beq $t5, $zero, WaitInputKey	#if $t5 == 0 then Polling 
 		nop
-		beq $t5, $zero, WaitForKey
-ReadKey:	lw $t6, 0($k0)			#$t6 = [$k0] = KEY_CODE
+		beq $t5, $zero, WaitInputKey
+ReadInput:	lw $t6, 0($k0)			#$t6 = [$k0] = KEY_CODE
 		beq $t6, 127 , continue		#if $t6 == delete key then remove input
 						#127 is delete key in ascii
 		
@@ -184,7 +184,6 @@ storePath:
 	addi $s3, $s3, 12	#update lengthPath
 				#12 = 3 (word) x 4 (bytes)
 	sw $s3, 0($t3)
-	
 	#restore
 	lw $s4, 0($sp)
 	addi $sp,$sp,-4
@@ -435,17 +434,15 @@ isNotEqual:
 	jr $ra
 	nop
 	jr $ra
-#-----------------------------------------------------------
+
 # printErrorMessage procedure, to announce the inputed control code is wrong
-# param[in] none
-#-----------------------------------------------------------					
 printErrorMessage: li $v0, 4
 	la $a0, inputControlCode
 	syscall
 	nop
 	
 	li $v0, 55
-	la $a0, WRONG_CODE
+	la $a0, ERROR_MESSAGE
 	syscall
 	nop
 	nop
